@@ -3,10 +3,16 @@ import subprocess
 import tempfile
 import os
 
+PHPSTAN_PATH = os.path.expanduser("vendor/bin/phpstan")  # Adjust if necessary
+
 app = Flask(__name__)
-
-PHPSTAN_PATH = os.path.expanduser("~/.composer/vendor/bin/phpstan")  # Adjust if necessary
-
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({
+        "status": "ok",
+        "message": "Service is healthy and running."
+    }), 200
+    
 @app.route("/scan", methods=["POST"])
 def scan_code():
     data = request.json
@@ -29,6 +35,5 @@ def scan_code():
     finally:
         os.unlink(tmp_file_path)  # Cleanup temp file
 
-# This is for Vercel to handle the app
-def handler(request):
-    return app(request)
+if __name__ == "__main__":
+    app.run(debug=True)

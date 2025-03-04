@@ -6,7 +6,7 @@ RUN apt-get update && \
     apt-get install -y php-cli curl unzip
 
 # Set the working directory in the container to /app/api
-WORKDIR /app/api
+WORKDIR /
 
 # Copy the current directory contents into the container
 COPY . /app
