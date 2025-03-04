@@ -1,33 +1,44 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9
+# Stage 1: Build the PHPStan image
+FROM php:8.1-cli as phpstan
 
-# Install PHP and necessary dependencies (since phpstan requires PHP)
+# Install dependencies for PHPStan
 RUN apt-get update && \
-    apt-get install -y php-cli curl unzip
+    apt-get install -y \
+    unzip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the container to /app/api
-WORKDIR /
-
-# Copy the current directory contents into the container
-COPY . /app
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r /app/requirements.txt
-
-# Install Composer
+# Install PHPStan
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+RUN git clone https://github.com/phpstan/phpstan.git /phpstan && \
+    cd /phpstan && \
+    composer install
 
-# Install PHPStan globally using Composer
-RUN composer global require phpstan/phpstan
+# After PHPStan is cloned, check the directory contents
+RUN ls -l 
 
-# Ensure PHPStan is available in the PATH
-ENV PATH="${PATH}:/root/.composer/vendor/bin"
+# Stage 2: Flask application setup
+FROM python:3.9-slim
 
-# Make port 5000 available to the world outside the container
+# Set environment variables for the Flask app
+ENV FLASK_APP=api.py
+ENV FLASK_ENV=development
+
+# Install Flask and any other dependencies
+RUN pip install --no-cache-dir Flask
+
+# Install PHP
+RUN apt-get update && apt-get install -y php
+
+# Copy the PHPStan binary from the build stage
+COPY --from=phpstan . /usr/local/bin/phpstan
+
+# Copy your Flask app code into the container
+COPY . /app
+WORKDIR /app
+
+# Expose the port Flask will run on
 EXPOSE 5000
 
-# Define environment variable
-ENV NAME World
-
-# Run Gunicorn server with scan:app as entry point
-CMD ["gunicorn", "scan:app", "--bind", "0.0.0.0:5000"]
+# Run the Flask app when the container starts
+CMD ["flask", "run", "--host=0.0.0.0"]
